@@ -24,9 +24,9 @@ public class App {
 //        compare("D:/_ph/img2.jpg", "D:/_ph/img3.jpg");
 //        compare("D:/_ph/img1.jpg", "D:/_ph/img3.jpg");
 
-        createImageStatistic("D:/_ph/img6.jpg").print();
-
-//        convertToGrayscaleAndSave("D:/_ph/white", "___");
+//        createImageStatistic("D:/_ph/img6.jpg").print();
+//
+        convert("D:/_ph/img6", "_red_highlighting_30");
     }
 
     private static void compare(String path1, String path2) throws IOException {
@@ -67,6 +67,68 @@ public class App {
         try (OutputStream out = new FileOutputStream(originPath + prefix + ".jpg")) {
             ImageIO.write(converted, "jpg", out);
         }
+    }
+
+    private static void convert(String originPath, String prefix) throws IOException {
+
+        BufferedImage original = ImageIO.read(Paths.get(originPath + ".jpg").toUri().toURL());
+        int height = original.getHeight();
+        int width = original.getWidth();
+        int progress = 0;
+
+        BufferedImage converted = new BufferedImage(width, height, original.getType());
+
+        for (int y = 1; y < height - 1; y++) {
+            int newProgress = (int) (100.0 * y / height);
+            if (newProgress > progress) {
+                progress = newProgress;
+                System.out.println("progress = " + progress);
+            }
+//            System.out.println("y = " + y);
+
+            for (int x = 1; x < width - 1; x++) {
+
+                Color tl = new Color(original.getRGB(x - 1, y - 1));
+                Color tc = new Color(original.getRGB(x, y - 1));
+                Color tr = new Color(original.getRGB(x + 1, y - 1));
+
+                Color cl = new Color(original.getRGB(x - 1, y));
+                Color cc = new Color(original.getRGB(x, y));        //current
+                Color cr = new Color(original.getRGB(x + 1, y));
+
+                Color bl = new Color(original.getRGB(x - 1, y - 1));
+                Color bc = new Color(original.getRGB(x, y + 1));
+                Color br = new Color(original.getRGB(x + 1, y + 1));
+
+                int totalAvg = (avgDiff(cc, tl)
+                        + avgDiff(cc, tc)
+                        + avgDiff(cc, tr)
+                        + avgDiff(cc, cl)
+                        + avgDiff(cc, cr)
+                        + avgDiff(cc, bl)
+                        + avgDiff(cc, bc)
+                        + avgDiff(cc, br)) / 8;
+
+                if (totalAvg > 30) {
+                    converted.setRGB(x, y, new Color(255, 0, 0).getRGB());
+                }
+                else {
+                    converted.setRGB(x, y, cc.getRGB());
+                }
+            }
+        }
+
+        try (OutputStream out = new FileOutputStream(originPath + prefix + ".jpg")) {
+            ImageIO.write(converted, "jpg", out);
+        }
+    }
+
+    private static int avg(Color c) {
+        return (c.getRed() + c.getGreen() + c.getBlue()) / 3;
+    }
+
+    private static int avgDiff(Color c1, Color c2) {
+        return Math.abs(avg(c1) - avg(c2));
     }
 
     private static Accumulator compareImages(BufferedImage img1, BufferedImage img2) {
@@ -133,6 +195,12 @@ public class App {
         long r;
         long g;
         long b;
+
+        public void addRGB(Color color) {
+            addR(color.getRed());
+            addG(color.getGreen());
+            addB(color.getBlue());
+        }
 
         public void addR(int r) {
             this.r += r;
