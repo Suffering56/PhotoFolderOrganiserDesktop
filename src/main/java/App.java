@@ -1,16 +1,8 @@
-import ij.IJ;
-import ij.ImagePlus;
-import ij.io.FileSaver;
-import ij.io.ImageWriter;
-import ij.process.ImageConverter;
-import org.apache.commons.io.IOUtils;
-
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.URL;
-import java.nio.file.Path;
+import java.math.BigDecimal;
 import java.nio.file.Paths;
 
 /**
@@ -20,37 +12,39 @@ import java.nio.file.Paths;
 public class App {
 
     public static void main(String[] args) throws IOException {
-        ImagePlus same1 = IJ.openImage("D:/_ph/same_1.jpg");
-        ImagePlus same2 = IJ.openImage("D:/_ph/same_2.jpg");
-        ImagePlus other1 = IJ.openImage("D:/_ph/other_1.jpg");
-//
-        Accumulator same1_vs_same2 = compareImages(same1, same2);
-        Accumulator same1_vs_other1 = compareImages(same1, other1);
 
-        int total = same1.getWidth() * same1.getHeight() * 3;
-        int totalGrayscale = same1.getWidth() * same1.getHeight();
+//        compare("D:/_ph/white.jpg", "D:/_ph/black.jpg");
+//        System.out.println();
+//        compare("D:/_ph/white.jpg", "D:/_ph/gray.jpg");
+//        System.out.println();
+//        compare("D:/_ph/black.jpg", "D:/_ph/gray.jpg");
+//        compare("D:/_ph/same_1.jpg", "D:/_ph/same_2.jpg");
+//        compare("D:/_ph/same_1.jpg", "D:/_ph/other_1.jpg");
+//        compare("D:/_ph/img1.jpg", "D:/_ph/img2.jpg");
+//        compare("D:/_ph/img2.jpg", "D:/_ph/img3.jpg");
+//        compare("D:/_ph/img1.jpg", "D:/_ph/img3.jpg");
 
-//
-        System.out.println("color:");
-        System.out.println(same1_vs_same2.getTotal() / total);
-        System.out.println(same1_vs_other1.getTotal() / total);
+        createImageStatistic("D:/_ph/img6.jpg").print();
 
-        same1_vs_same2 = compareImagesGrayscale(same1, same2);
-        same1_vs_other1 = compareImagesGrayscale(same1, other1);
+//        convertToGrayscaleAndSave("D:/_ph/white", "___");
+    }
 
-        System.out.println("grayscale");
-        System.out.println(same1_vs_same2.getTotal() / totalGrayscale);
-        System.out.println(same1_vs_other1.getTotal() / totalGrayscale);
-//
+    private static void compare(String path1, String path2) throws IOException {
+        BufferedImage img1 = ImageIO.read(Paths.get(path1).toUri().toURL());
+        BufferedImage img2 = ImageIO.read(Paths.get(path2).toUri().toURL());
 
-//
-//        long same1_vs_same2_percentages = same1_vs_same2.getTotal() / total;
-//        long same1_vs_other1_percentages = same1_vs_other1.getTotal() / total;
-//
-//        System.out.println("same1_vs_same2 = " + same1_vs_same2_percentages + "%");
-//        System.out.println("same1_vs_other1 = " + same1_vs_other1_percentages + "%");
+        Accumulator colorAccum = compareImages(img1, img2);
+        Accumulator grayscaleAccum = compareImagesGrayscale(img1, img2);
 
-//        convertToGrayscaleAndSave("D:/_ph/same_1", "_white");
+        System.out.println("diff between: " + path1 + " AND " + path2);
+
+        System.out.println("diff[color]    : " + calculatePercents(img1, colorAccum.getTotal()) + "%");
+        System.out.println("diff[grayscale]: " + calculatePercents(img1, grayscaleAccum.getTotal()) + "%");
+    }
+
+    private static long calculatePercents(BufferedImage img, long diff) {
+        long maxDiff = img.getWidth() * img.getHeight() * 255L * 3L;
+        return Math.round(100.0 * diff / maxDiff);
     }
 
     private static void convertToGrayscaleAndSave(String originPath, String prefix) throws IOException {
@@ -65,8 +59,7 @@ public class App {
                 int g = originPixel.getGreen();
                 int b = originPixel.getBlue();
 
-//                int any = (r + g + b) / 3;
-                int any = 128;
+                int any = (r + g + b) / 3;
                 converted.setRGB(i, j, new Color(any, any, any).getRGB());
             }
         }
@@ -76,71 +69,64 @@ public class App {
         }
     }
 
-    private static Accumulator compareImages(ImagePlus img1, ImagePlus img2) {
+    private static Accumulator compareImages(BufferedImage img1, BufferedImage img2) {
+        Accumulator accumulator = new Accumulator();
+
+
+        for (int x = 0; x < img1.getWidth(); x++) {
+            for (int y = 0; y < img1.getHeight(); y++) {
+                Color c1 = new Color(img1.getRGB(x, y));
+                Color c2 = new Color(img2.getRGB(x, y));
+
+                accumulator.addR(Math.abs(c1.getRed() - c2.getRed()));
+                accumulator.addG(Math.abs(c1.getGreen() - c2.getGreen()));
+                accumulator.addB(Math.abs(c1.getBlue() - c2.getBlue()));
+            }
+        }
+        return accumulator;
+    }
+
+    private static Accumulator compareImagesGrayscale(BufferedImage img1, BufferedImage img2) {
         Accumulator accumulator = new Accumulator();
 
         for (int x = 0; x < img1.getWidth(); x++) {
             for (int y = 0; y < img1.getHeight(); y++) {
-                int[] p1 = img1.getPixel(x, y);
-                int[] p2 = img2.getPixel(x, y);
+                Color c1 = new Color(img1.getRGB(x, y));
+                Color c2 = new Color(img2.getRGB(x, y));
 
+                int avg1 = (c1.getRed() + c1.getGreen() + c1.getBlue()) / 3;
+                int avg2 = (c2.getRed() + c2.getGreen() + c2.getBlue()) / 3;
 
+                int diff = Math.abs(avg1 - avg2);
 
-                accumulator.addR(Math.abs(p1[0] - p2[0]));
-                accumulator.addG(Math.abs(p1[1] - p2[1]));
-                accumulator.addB(Math.abs(p1[2] - p2[2]));
-
-//                int avg1 = (p1[0] + p1[1] + p1[2]) / 3;
-//                int avg2 = (p2[0] + p2[1] + p2[2]) / 3;
-//                accumulator.addR(Math.abs(avg1 - avg2));
+                accumulator.addR(diff);
+                accumulator.addG(diff);
+                accumulator.addB(diff);
             }
         }
         return accumulator;
     }
-    private static Accumulator compareImagesGrayscale(ImagePlus img1, ImagePlus img2) {
+
+
+    private static Accumulator createImageStatistic(String path) throws IOException {
+        BufferedImage img = ImageIO.read(Paths.get(path).toUri().toURL());
+        System.out.println("statisticsFor: " + path);
+        return createImageStatistic(img);
+    }
+
+    private static Accumulator createImageStatistic(BufferedImage img) {
         Accumulator accumulator = new Accumulator();
 
-        for (int x = 0; x < img1.getWidth(); x++) {
-            for (int y = 0; y < img1.getHeight(); y++) {
-                int[] p1 = img1.getPixel(x, y);
-                int[] p2 = img2.getPixel(x, y);
+        for (int x = 0; x < img.getWidth(); x++) {
+            for (int y = 0; y < img.getHeight(); y++) {
+                Color c = new Color(img.getRGB(x, y));
 
-
-
-//                accumulator.addR(Math.abs(p1[0] - p2[0]));
-//                accumulator.addG(Math.abs(p1[1] - p2[1]));
-//                accumulator.addB(Math.abs(p1[2] - p2[2]));
-
-                int avg1 = (p1[0] + p1[1] + p1[2]) / 3;
-                int avg2 = (p2[0] + p2[1] + p2[2]) / 3;
-                accumulator.addR(Math.abs(avg1 - avg2));
+                accumulator.addR(c.getRed());
+                accumulator.addG(c.getGreen());
+                accumulator.addB(c.getBlue());
             }
         }
         return accumulator;
-    }
-
-
-    private static Accumulator createImageStatistic(ImagePlus imp) {
-        Accumulator accumulator = new Accumulator();
-
-        for (int x = 0; x < imp.getWidth(); x++) {
-            for (int y = 0; y < imp.getHeight(); y++) {
-                int[] pixel = imp.getPixel(x, y);
-                int r = pixel[0];
-                int g = pixel[1];
-                int b = pixel[2];
-
-                accumulator.addR(r);
-                accumulator.addG(g);
-                accumulator.addB(b);
-
-            }
-        }
-        return accumulator;
-    }
-
-    private static void convertToGrayscale(ImagePlus imp) {
-        new ImageConverter(imp).convertToGray8();
     }
 
     private static class Accumulator {
@@ -167,6 +153,20 @@ public class App {
 
         public long getTotal() {
             return r + g + b;
+        }
+
+        private BigDecimal getPercents(long part) {
+            long total = getTotal();
+            if (total == 0) {
+                return BigDecimal.ZERO;
+            }
+            double percents = 100.0 * part / total;
+            return BigDecimal.valueOf(percents)
+                    .setScale(1, BigDecimal.ROUND_HALF_DOWN);
+        }
+
+        public void print() {
+            System.out.println(String.format("R: %s\nG: %s\nB: %s", getPercents(r), getPercents(g), getPercents(b)));
         }
     }
 }
