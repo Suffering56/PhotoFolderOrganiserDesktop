@@ -1,9 +1,14 @@
+package com.pvs;
+
+import javafx.util.Pair;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author v.peschaniy
@@ -12,7 +17,6 @@ import java.nio.file.Paths;
 public class App {
 
     public static void main(String[] args) throws IOException {
-
 //        compare("D:/_ph/white.jpg", "D:/_ph/black.jpg");
 //        System.out.println();
 //        compare("D:/_ph/white.jpg", "D:/_ph/gray.jpg");
@@ -26,7 +30,7 @@ public class App {
 
 //        createImageStatistic("D:/_ph/img6.jpg").print();
 //
-        convert("D:/_ph/img6", "_red_highlighting_30");
+//        fastDetector("D:/_ph/img6", PREFIX);
     }
 
     private static void compare(String path1, String path2) throws IOException {
@@ -62,6 +66,68 @@ public class App {
                 int any = (r + g + b) / 3;
                 converted.setRGB(i, j, new Color(any, any, any).getRGB());
             }
+        }
+
+        try (OutputStream out = new FileOutputStream(originPath + prefix + ".jpg")) {
+            ImageIO.write(converted, "jpg", out);
+        }
+    }
+
+    private static final String PREFIX = "_fast_step_16";
+
+    private static void fastDetector(String originPath, String prefix) throws IOException {
+        BufferedImage original = ImageIO.read(Paths.get(originPath + ".jpg").toUri().toURL());
+        int height = original.getHeight();
+        int width = original.getWidth();
+
+        List<Pair<Integer, Integer>> redPixels = new ArrayList<>();
+        int offset = 16;
+        int pointRadius = 0;
+        int step = 1;
+//        int maxDiff = 100;
+
+        BufferedImage converted = new BufferedImage(width, height, original.getType());
+        converted.setData(original.getData());
+
+        for (int y = offset; y < height - offset; y += step) {
+            for (int x = offset; x < width - offset; x += step) {
+                Color origin = new Color(original.getRGB(x, y));
+
+                int counter = 0;
+
+                for (int i = -offset; i <= offset; i += offset) {
+                    int j = -i;
+                    Color other = new Color(original.getRGB(x + i, y + j));
+                    if (avgDiff(origin, other) > 100) {
+                        counter++;
+                    }
+                }
+                for (int i = -offset; i <= offset; i++) {
+
+//                    for (int j = -offset; j <= offset; j++) {
+//                        if (Math.abs(i) + Math.abs(j) == offset) {
+//                            Color other = new Color(original.getRGB(x + i, y + j));
+//                            if (avgDiff(origin, other) > 100) {
+//                                counter++;
+//                            }
+//                        }
+//                    }
+                }
+
+                if (counter >= 9) {
+                    for (int i = -pointRadius; i <= pointRadius; i++) {
+                        for (int j = -pointRadius; j <= pointRadius; j++) {
+                            redPixels.add(new Pair<>(x + i, y + j));
+                        }
+                    }
+                }
+            }
+        }
+
+        System.out.println("redPixels = " + redPixels.size());
+
+        for (Pair<Integer, Integer> xy : redPixels) {
+            converted.setRGB(xy.getKey(), xy.getValue(), new Color(255, 0, 0).getRGB());
         }
 
         try (OutputStream out = new FileOutputStream(originPath + prefix + ".jpg")) {
